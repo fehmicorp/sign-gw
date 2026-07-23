@@ -1,6 +1,7 @@
 package smtp
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/fehmicorp/sign-gw/pkg/v1/config"
@@ -12,7 +13,7 @@ func GetUser(username string) (*config.User, error) {
 	if i := strings.Index(username, "@"); i > 0 {
 		username = username[:i]
 	}
-
+	fmt.Printf("getting user data: %s", username)
 	conn, err := ldap.Connect()
 	if err != nil {
 		return nil, err
@@ -20,7 +21,7 @@ func GetUser(username string) (*config.User, error) {
 
 	defer conn.Close()
 
-	config.Conn = conn
+	ldap.Conn = conn
 
 	return ldap.GetUser(username)
 }

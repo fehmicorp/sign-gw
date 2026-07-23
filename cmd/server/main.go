@@ -29,6 +29,11 @@ func main() {
 	logger.Info("Templates Loaded", zap.Int("count", len(config.Templates)))
 	config.StartTemplateWatcher()
 
+	// conn, _ := ldap.Connect()
+	// defer conn.Close()
+
+	// ldap.Conn = conn
+
 	logger.Info("Checking TLS Certificate")
 	if err := smtp.GenerateCertificate(); err != nil {
 		logger.Fatal(
@@ -48,5 +53,7 @@ func main() {
 		zap.String("hostname", config.SmtpC.Hostname),
 		zap.Bool("tls", config.SmtpC.UseTLS),
 	)
+	// test()
+	// testnew()
 
 }

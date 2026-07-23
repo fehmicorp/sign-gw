@@ -1,6 +1,7 @@
 package smtp
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -57,6 +58,10 @@ func (s *Session) Rcpt(
 
 func (s *Session) Data(r io.Reader) error {
 
+	//----------------------------------------------------------
+	// Read SMTP DATA
+	//----------------------------------------------------------
+
 	raw, err := io.ReadAll(r)
 	if err != nil {
 		return err
@@ -74,29 +79,34 @@ func (s *Session) Data(r io.Reader) error {
 	) {
 
 		logger.Info(
-			"Message already processed. Skipping.",
+			"Message already processed. Relaying without modification.",
 		)
+
+		if err := Relay(s.mail); err != nil {
+			logger.Error("relay processed message failed", zap.Error(err))
+			return err
+		}
 
 		return nil
 	}
 
 	//----------------------------------------------------------
-	// Save Original
+	// Save Original EML
 	//----------------------------------------------------------
 
-	// if Conf.SaveRawEML {
+	if config.SmtpC.SaveRawEML {
 
-	// 	if err := SaveEML(s.mail); err != nil {
+		if err := SaveEML(s.mail); err != nil {
 
-	// 		logger.Error(
-	// 			"save original eml",
-	// 			zap.Error(err),
-	// 		)
-	// 	}
-	// }
+			logger.Error(
+				"save original eml",
+				zap.Error(err),
+			)
+		}
+	}
 
 	//----------------------------------------------------------
-	// Parse Message
+	// Parse RFC822 Message
 	//----------------------------------------------------------
 
 	email, err := ParseMessage(raw)
@@ -115,31 +125,27 @@ func (s *Session) Data(r io.Reader) error {
 	email.EnvelopeTo = s.mail.EnvelopeTo
 
 	//----------------------------------------------------------
-	// Inject HTML Signature
+	// Generate Signature (HTML & Text)
 	//----------------------------------------------------------
 
-	if strings.TrimSpace(email.HTML) != "" {
+	email.HTML = fmt.Sprintf(`
+	<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-top: 15px;">
+		<hr style="border: none; border-top: 1px solid #0066cc; margin-bottom: 10px;" />
+		<p style="margin: 0; font-weight: bold; color: #111;">%s</p>
+		<p style="margin: 0; color: #555;">Sent via Signature Gateway</p>
+		<p style="margin: 0; color: #0066cc;">Shalimar Corp</p>
+	</div>`, email.EnvelopeFrom)
 
-		email.HTML = ParseBody(
-			email.HTML,
-			email.EnvelopeFrom,
-		)
-	}
+	email.Text = fmt.Sprintf("\n--\n%s\nSent via Signature Gateway\nShalimar Corp", email.EnvelopeFrom)
 
-	//----------------------------------------------------------
-	// Inject Plain Signature
-	//----------------------------------------------------------
+	htmlSignature, err := HTMLSignature(email)
+	textSignature := HTMLToText(htmlSignature)
 
-	if strings.TrimSpace(email.Text) != "" {
-
-		email.Text = ParseBody(
-			email.Text,
-			email.EnvelopeFrom,
-		)
-	}
+	email.HTML = htmlSignature
+	email.Text = textSignature
 
 	//----------------------------------------------------------
-	// Build RFC822
+	// Build Message
 	//----------------------------------------------------------
 
 	newRaw, err := Build(email)
@@ -154,11 +160,10 @@ func (s *Session) Data(r io.Reader) error {
 	}
 
 	email.Raw = newRaw
-
 	s.mail = email
 
 	//----------------------------------------------------------
-	// Save Edited
+	// Save Edited EML
 	//----------------------------------------------------------
 
 	if config.SmtpC.SaveRawEML {
@@ -172,6 +177,10 @@ func (s *Session) Data(r io.Reader) error {
 		}
 	}
 
+	//----------------------------------------------------------
+	// Log Processing
+	//----------------------------------------------------------
+
 	logger.Info(
 		"Message Processed",
 		zap.String("from", email.EnvelopeFrom),
@@ -180,7 +189,7 @@ func (s *Session) Data(r io.Reader) error {
 	)
 
 	//----------------------------------------------------------
-	// Relay
+	// Relay Processed Email
 	//----------------------------------------------------------
 
 	if err := Relay(email); err != nil {

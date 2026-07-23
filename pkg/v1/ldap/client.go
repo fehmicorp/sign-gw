@@ -8,16 +8,17 @@ import (
 	"github.com/go-ldap/ldap/v3"
 )
 
+var Conn *ldap.Conn
+
 func Connect() (*ldap.Conn, error) {
 	cfg := config.LdapC
 	address := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
 
-	var conn *ldap.Conn
 	var err error
 
 	if cfg.UseTLS {
 
-		conn, err = ldap.DialTLS(
+		Conn, err = ldap.DialTLS(
 			"tcp",
 			address,
 			&tls.Config{
@@ -27,7 +28,7 @@ func Connect() (*ldap.Conn, error) {
 
 	} else {
 
-		conn, err = ldap.Dial("tcp", address)
+		Conn, err = ldap.Dial("tcp", address)
 
 	}
 
@@ -35,12 +36,12 @@ func Connect() (*ldap.Conn, error) {
 		return nil, err
 	}
 
-	err = conn.Bind(cfg.BindDN, cfg.Password)
+	err = Conn.Bind(cfg.BindDN, cfg.Password)
 
 	if err != nil {
-		conn.Close()
+		Conn.Close()
 		return nil, err
 	}
 
-	return conn, nil
+	return Conn, nil
 }

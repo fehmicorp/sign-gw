@@ -90,6 +90,13 @@ func ldapTime(v string) time.Time {
 
 func GetUser(username string) (*config.User, error) {
 
+	conn, err := Connect()
+	if err != nil {
+		return nil, err
+	}
+
+	defer conn.Close()
+	Conn = conn
 	filter := fmt.Sprintf(
 		"(|(sAMAccountName=%s)(userPrincipalName=%s))",
 		gldap.EscapeFilter(username),
@@ -108,7 +115,7 @@ func GetUser(username string) (*config.User, error) {
 		nil,
 	)
 
-	res, err := config.Conn.Search(req)
+	res, err := Conn.Search(req)
 	if err != nil {
 		return nil, err
 	}

@@ -2,19 +2,15 @@ package config
 
 import (
 	"time"
-
-	gldap "github.com/go-ldap/ldap/v3"
 )
 
-var Conn *gldap.Conn
-
 type Ldap struct {
-	Server   string
-	Port     int
-	BaseDN   string
-	BindDN   string
-	Password string
-	UseTLS   bool
+	Server   string `yaml:"server"`
+	Port     int    `yaml:"port"`
+	BaseDN   string `yaml:"baseDN"`
+	BindDN   string `yaml:"bindDN"`
+	Password string `yaml:"password"`
+	UseTLS   bool   `yaml:"useTLS"`
 }
 
 type User struct {

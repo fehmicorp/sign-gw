@@ -6,39 +6,20 @@ import (
 	"github.com/fehmicorp/sign-gw/pkg/v1/config"
 )
 
-// ----------------------------------------------------------------------
-// ParseBody
-// ----------------------------------------------------------------------
-// Replaces %%SIGN%% with the rendered signature.
-//
-// Rules:
-//
-// 1. Replace %%SIGN%% if present (case-insensitive)
-// 2. Otherwise insert before </body>
-// 3. Otherwise append to the end
-// ----------------------------------------------------------------------
-
+// ParseBody replaces %%SIGN%% or %%SIGNATURE%% with the rendered user signature.
 func ParseBody(body, sender string) string {
-
 	if strings.TrimSpace(body) == "" {
 		return body
 	}
 
-	//------------------------------------------------------------------
-	// LDAP User
-	//------------------------------------------------------------------
-
+	// 1. LDAP User lookup
 	user, err := GetUser(sender)
 	if err != nil {
 		return body
 	}
 
-	//------------------------------------------------------------------
-	// Load Template
-	//------------------------------------------------------------------
-
+	// 2. Load Template
 	tmpl := config.Get(user.Office)
-
 	if tmpl == nil {
 		tmpl = config.Get("default")
 	}
@@ -47,80 +28,66 @@ func ParseBody(body, sender string) string {
 		return body
 	}
 
-	//------------------------------------------------------------------
-	// Render Signature
-	//------------------------------------------------------------------
-
+	// 3. Render Signature
 	signature := Render(tmpl.HTML, user)
 
 	return InjectSignature(body, signature)
 }
 
-// ----------------------------------------------------------------------
-// InjectSignature
-// ----------------------------------------------------------------------
-
+// InjectSignature handles token replacement and fallback insertion logic.
 func InjectSignature(body, signature string) string {
-
 	if body == "" {
 		return signature
 	}
 
 	upper := strings.ToUpper(body)
+	isHTML := strings.Contains(strings.ToLower(body), "<html") ||
+		strings.Contains(strings.ToLower(body), "<div") ||
+		strings.Contains(strings.ToLower(body), "<table") ||
+		strings.Contains(strings.ToLower(body), "<p")
+
+	// Prepare signature formats
+	htmlSig := signature
+	textSig := HTMLToText(signature)
 
 	//------------------------------------------------------------------
-	// Replace %%SIGN%%
+	// 1. Replace %%SIGN%% or %%SIGNATURE%%
 	//------------------------------------------------------------------
+	for _, token := range []string{"%%SIGN%%", "%%SIGNATURE%%"} {
+		if idx := strings.Index(upper, token); idx >= 0 {
+			// If replacing inside plain text, use plain text signature
+			replacement := htmlSig
+			if !isHTML {
+				replacement = textSig
+			}
 
-	if idx := strings.Index(upper, "%%SIGN%%"); idx >= 0 {
-
-		return body[:idx] +
-			signature +
-			body[idx+len("%%SIGN%%"):]
+			return body[:idx] + replacement + body[idx+len(token):]
+		}
 	}
 
 	//------------------------------------------------------------------
-	// Insert before </body>
+	// 2. Insert before </body> (HTML messages)
 	//------------------------------------------------------------------
-
 	lower := strings.ToLower(body)
-
 	if idx := strings.LastIndex(lower, "</body>"); idx >= 0 {
-
-		return body[:idx] +
-			"\n" +
-			signature +
-			"\n" +
-			body[idx:]
+		return body[:idx] + "\n" + htmlSig + "\n" + body[idx:]
 	}
 
 	//------------------------------------------------------------------
-	// HTML Message
+	// 3. Append to HTML
 	//------------------------------------------------------------------
-
-	if strings.Contains(lower, "<html") ||
-		strings.Contains(lower, "<div") ||
-		strings.Contains(lower, "<table") ||
-		strings.Contains(lower, "<p") {
-
-		return body + "<br><br>" + signature
+	if isHTML {
+		return body + "<br><br>" + htmlSig
 	}
 
 	//------------------------------------------------------------------
-	// Plain Text
+	// 4. Append to Plain Text
 	//------------------------------------------------------------------
-
-	text := HTMLToText(signature)
-
-	return body + "\r\n\r\n" + text
+	return body + "\r\n\r\n" + textSig
 }
 
-// ----------------------------------------------------------------------
-// HTMLToText
-// ----------------------------------------------------------------------
-
+// HTMLToText safely strips HTML tags and converts common markup to plain text.
 func HTMLToText(html string) string {
-
 	r := strings.NewReplacer(
 		"<br>", "\n",
 		"<br/>", "\n",
@@ -139,26 +106,29 @@ func HTMLToText(html string) string {
 
 	text := r.Replace(html)
 
-	// Remove remaining tags
-	for {
+	// Safe HTML Tag Removal (prevents infinite loops on malformed HTML)
+	var sb strings.Builder
+	inTag := false
 
-		start := strings.Index(text, "<")
-		if start < 0 {
-			break
+	for _, ch := range text {
+		if ch == '<' {
+			inTag = true
+			continue
 		}
-
-		end := strings.Index(text[start:], ">")
-		if end < 0 {
-			break
+		if ch == '>' {
+			inTag = false
+			continue
 		}
-
-		text = text[:start] + text[start+end+1:]
+		if !inTag {
+			sb.WriteRune(ch)
+		}
 	}
 
-	text = strings.ReplaceAll(text, "&nbsp;", " ")
-	text = strings.ReplaceAll(text, "&amp;", "&")
-	text = strings.ReplaceAll(text, "&lt;", "<")
-	text = strings.ReplaceAll(text, "&gt;", ">")
+	res := sb.String()
+	res = strings.ReplaceAll(res, "&nbsp;", " ")
+	res = strings.ReplaceAll(res, "&amp;", "&")
+	res = strings.ReplaceAll(res, "&lt;", "<")
+	res = strings.ReplaceAll(res, "&gt;", ">")
 
-	return strings.TrimSpace(text)
+	return strings.TrimSpace(res)
 }
