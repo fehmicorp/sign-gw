@@ -1,0 +1,23 @@
+smtp:
+  listenHost: #Listing Address 0.0.0.0
+  listenPort: #Listing Port no (25)
+  hostname: #Gateway public FQDN
+  useTLS: true
+  allowInsecure: true
+  maxRecipients: 100
+  maxMessageSize: 52428800
+  saveRawEML: true
+  logSMTP: true
+  relayHost: #Hostname smtp.google.cmo
+  relayPort: #Port no (587)
+  relayUsername: #Username
+  relayPassword: #App Password
+  relayTLS: true
+
+ldap:
+  server: # Domain IP or FQDN (192.168.0.2 / ldap.yourdomain.com)
+  port: # Port No (389)
+  baseDN: #DC=Domain name,DC=Domain. name
+  bindDN: ##CN=Username,DC=Domain name,DC=Domain. name
+  password: ##Your Password
+  useTLS: false
