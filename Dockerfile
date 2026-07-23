@@ -32,7 +32,7 @@ WORKDIR /app
 RUN apk add --no-cache \
     ca-certificates \
     tzdata\
-    opensslx
+    openssl
 
 COPY --from=builder /app/sign-gw .
 
