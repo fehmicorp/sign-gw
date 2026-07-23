@@ -44,8 +44,8 @@ func Start() error {
 	if cfg.UseTLS {
 
 		cert, err := tls.LoadX509KeyPair(
-			"certs/server.crt",
-			"certs/server.key",
+			"./data/certs/server.crt",
+			"./data/certs/server.key",
 		)
 
 		if err != nil {

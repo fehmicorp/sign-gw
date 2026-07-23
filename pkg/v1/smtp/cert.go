@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/fehmicorp/sign-gw/pkg/v1/config"
@@ -25,7 +26,7 @@ func GenerateCertificate() error {
 
 	host := "mail." + strings.ToLower(parts[1])
 
-	certDir := "./certs"
+	certDir := "./data/certs"
 
 	certFile := filepath.Join(certDir, "server.crt")
 	keyFile := filepath.Join(certDir, "server.key")
@@ -34,7 +35,10 @@ func GenerateCertificate() error {
 		return err
 	}
 
-	// Certificate already exists
+	// ------------------------------------------------------------
+	// Already Exists
+	// ------------------------------------------------------------
+
 	if _, err := os.Stat(certFile); err == nil {
 
 		if _, err := os.Stat(keyFile); err == nil {
@@ -49,32 +53,66 @@ func GenerateCertificate() error {
 		}
 	}
 
-	mkcert := filepath.Join(
-		os.Getenv("LOCALAPPDATA"),
-		"Microsoft",
-		"WinGet",
-		"Packages",
-		"FiloSottile.mkcert_Microsoft.Winget.Source_8wekyb3d8bbwe",
-		"mkcert.exe",
-	)
-
 	logger.Info(
 		"Generating TLS certificate",
 		zap.String("host", host),
 	)
 
-	cmd := exec.Command(
-		mkcert,
-		"-cert-file", certFile,
-		"-key-file", keyFile,
-		host,
-	)
+	// ------------------------------------------------------------
+	// Windows (mkcert)
+	// ------------------------------------------------------------
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if runtime.GOOS == "windows" {
 
-	if err := cmd.Run(); err != nil {
-		return err
+		mkcert := filepath.Join(
+			os.Getenv("LOCALAPPDATA"),
+			"Microsoft",
+			"WinGet",
+			"Packages",
+			"FiloSottile.mkcert_Microsoft.Winget.Source_8wekyb3d8bbwe",
+			"mkcert.exe",
+		)
+
+		cmd := exec.Command(
+			mkcert,
+			"-cert-file", certFile,
+			"-key-file", keyFile,
+			host,
+		)
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+
+	} else {
+
+		// --------------------------------------------------------
+		// Linux / Docker (OpenSSL)
+		// --------------------------------------------------------
+
+		cmd := exec.Command(
+			"openssl",
+			"req",
+			"-x509",
+			"-nodes",
+			"-newkey", "rsa:4096",
+			"-sha256",
+			"-days", "3650",
+			"-keyout", keyFile,
+			"-out", certFile,
+			"-subj", fmt.Sprintf("/CN=%s", host),
+			"-addext", fmt.Sprintf("subjectAltName=DNS:%s", host),
+		)
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
 
 	logger.Info(
