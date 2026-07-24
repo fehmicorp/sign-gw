@@ -21,3 +21,7 @@ ldap:
   bindDN: ##CN=Username,DC=Domain name,DC=Domain. name
   password: ##Your Password
   useTLS: false
+
+save:
+  orignal: false #saving your orignal email
+  edited: false #saving your Procssed email
