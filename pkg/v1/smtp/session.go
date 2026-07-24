@@ -1,7 +1,6 @@
 package smtp
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -94,14 +93,16 @@ func (s *Session) Data(r io.Reader) error {
 	// Save Original EML
 	//----------------------------------------------------------
 
-	if config.SmtpC.SaveRawEML {
+	if config.SaveC.Orignal {
+		if config.SmtpC.SaveRawEML {
 
-		if err := SaveEML(s.mail); err != nil {
+			if err := SaveEML(s.mail); err != nil {
 
-			logger.Error(
-				"save original eml",
-				zap.Error(err),
-			)
+				logger.Error(
+					"save original eml",
+					zap.Error(err),
+				)
+			}
 		}
 	}
 
@@ -127,17 +128,6 @@ func (s *Session) Data(r io.Reader) error {
 	//----------------------------------------------------------
 	// Generate Signature (HTML & Text)
 	//----------------------------------------------------------
-
-	email.HTML = fmt.Sprintf(`
-	<div style="font-family: Arial, sans-serif; font-size: 14px; color: #333; margin-top: 15px;">
-		<hr style="border: none; border-top: 1px solid #0066cc; margin-bottom: 10px;" />
-		<p style="margin: 0; font-weight: bold; color: #111;">%s</p>
-		<p style="margin: 0; color: #555;">Sent via Signature Gateway</p>
-		<p style="margin: 0; color: #0066cc;">Shalimar Corp</p>
-	</div>`, email.EnvelopeFrom)
-
-	email.Text = fmt.Sprintf("\n--\n%s\nSent via Signature Gateway\nShalimar Corp", email.EnvelopeFrom)
-
 	htmlSignature, err := HTMLSignature(email)
 	textSignature := HTMLToText(htmlSignature)
 
@@ -166,14 +156,16 @@ func (s *Session) Data(r io.Reader) error {
 	// Save Edited EML
 	//----------------------------------------------------------
 
-	if config.SmtpC.SaveRawEML {
+	if config.SaveC.Edited {
+		if config.SmtpC.SaveRawEML {
 
-		if err := SaveEditedEML(email); err != nil {
+			if err := SaveEditedEML(email); err != nil {
 
-			logger.Error(
-				"save edited eml",
-				zap.Error(err),
-			)
+				logger.Error(
+					"save edited eml",
+					zap.Error(err),
+				)
+			}
 		}
 	}
 
