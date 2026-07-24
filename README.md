@@ -53,7 +53,15 @@ Recipient
 go run ./cmd/server -c ./config.yaml
 ```
 
-### Docker
+## 🐳 Docker
+
+### Pull Image
+
+```bash
+docker pull ghcr.io/fehmicorp/sign-gw:v1.0.0
+```
+
+### Run Container
 
 ```bash
 docker run -d \
@@ -63,10 +71,28 @@ docker run -d \
   -v $(pwd)/config.yaml:/config/config.yaml:ro \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
-  fehmi/sign-gw:latest \
+  ghcr.io/fehmicorp/sign-gw:v1.0.0 \
   -c /config/config.yaml
 ```
 
+### Docker Compose
+
+```yaml
+version: "3.9"
+
+services:
+  sign-gw:
+    image: ghcr.io/fehmicorp/sign-gw:v1.0.0
+    container_name: sign-gw
+    restart: unless-stopped
+    ports:
+      - "25:25"
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: ["-c", "/config/config.yaml"]
+```
 ---
 
 ## 📂 Project Structure
